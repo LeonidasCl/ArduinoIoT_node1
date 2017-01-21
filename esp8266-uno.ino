@@ -1,104 +1,78 @@
-#include <aJSON.h>
-//=============  此处必须修该============
-String DEVICEID="1320"; // 你的设备编号   ==
-String  APIKEY="794abfc28"; // 设备密码==
-//=======================================
-const int LED = 4;// LED正极连接针脚4
-unsigned long lastCheckInTime = 0; //记录上次报到时间
-const unsigned long postingInterval = 40000; // 每隔40秒向服务器报到一次
-String inputString = "";
-boolean stringComplete = false;
-boolean CONNECT = true; 
-char* parseJson(char *jsonString);
+#include <SoftwareSerial.h>
+SoftwareSerial mySerial(2, 3); //设置模拟串口针脚(RX, TX)
+//=============  此处必须修改===================
+String WiFiSSID = "LiCL";//填写路由器名称=======
+String WiFiPASSWORD = "030150230";//填写WiFi密码===
+//==============================================
+int flag = 0;
 void setup() {
-  pinMode(LED, OUTPUT);
-  Serial.begin(115200);
-  delay(5000);
+  Serial.begin(9600);
+  mySerial.begin(115200);
 }
 void loop() {
-  if(millis() - lastCheckInTime > postingInterval || lastCheckInTime==0) {
-    checkIn();
-  }
-  serialEvent();
-    if (stringComplete) {
-      inputString.trim();
-      //Serial.println(inputString);
-      if(inputString=="CLOSED"){
-        Serial.println("connect closed!");
-        CONNECT=false;        
-      }else{
-        int len = inputString.length()+1;    
-        if(inputString.startsWith("{") && inputString.endsWith("}")){
-          char jsonString[len];
-          inputString.toCharArray(jsonString,len);
-          aJsonObject *msg = aJson.parse(jsonString);
-          processMessage(msg);
-          aJson.deleteItem(msg);          
-        }
-      }      
-      // clear the string:
-      inputString = "";
-      stringComplete = false;    
+  if(flag == 0){
+  Serial.println("setting start");
+  //ESP8266通电启动等待
+  delay(10000);
+  //如果是透传模式，退出透传
+  Serial.println("exit pass-through mode");
+  mySerial.print("+++");
+  delay(1000);
+  mySerial.print("AT\r\n");
+  delay(1000);
+  printmssage();
+  //关闭命令回显
+  Serial.println("Close command echo");
+  mySerial.print("ATE0\r\n");
+  delay(1000);
+  printmssage();
+  //设置WiFi应用模式为Station
+  Serial.println("choose station mode");
+  mySerial.print("AT+CWMODE=1\r\n");  
+  delay(1000);
+  printmssage();
+  //连接到无线路由器 AT+CWJAP="FAST_SXM","lcx123456"\r\n
+  Serial.println("connect wireless router");
+  mySerial.print("AT+CWJAP=\"");
+  mySerial.print(WiFiSSID);
+  mySerial.print("\",\"");
+  mySerial.print(WiFiPASSWORD);
+  mySerial.print("\"\r\n");
+  delay(10000);
+  printmssage();
+  //连接贝壳物联服务器
+  Serial.println("connect www.bigiot.net");
+  mySerial.print("AT+CIPSTART=\"TCP\",\"115.159.122.105\",9999\r\n");
+  delay(6000);
+  printmssage();
+  //设置模块传输模式为透传模式
+  Serial.println("choose pass-through mode");
+  mySerial.print("AT+CIPMODE=1\r\n");
+  delay(3000);
+  printmssage();
+  //进入透传模式
+  Serial.println("enter pass-through mode");
+  mySerial.print("AT+CIPSEND?\r\n");
+  delay(1000);
+  printmssage();
+  flag=1;
+  Serial.println("setting over");
+  delay(2000);
+  //退出透传模式，重启
+  Serial.println("exit pass-through mode");
+  mySerial.print("+++");
+  delay(600);
+  mySerial.print("\r\n");
+  delay(4000);
+  printmssage();
+  mySerial.print("AT+RST\r\n");
+  printmssage();
+}
+  printmssage();
+}
+void printmssage(){
+  if (mySerial.available()){
+      Serial.println(mySerial.readStringUntil('\n'));
   }
 }
-void checkIn() {
-  if (!CONNECT) {
-    Serial.print("+++");
-    delay(500);  
-    Serial.print("\r\n"); 
-    delay(1000);
-    Serial.print("AT+RST\r\n"); 
-    delay(6000);
-    CONNECT=true;
-    lastCheckInTime=0;
-  }
-  else{
-    Serial.print("{\"M\":\"checkin\",\"ID\":\"");
-    Serial.print(DEVICEID);
-    Serial.print("\",\"K\":\"");
-    Serial.print(APIKEY);
-    Serial.print("\"}\r\n");
-    lastCheckInTime = millis();   
-  }
-}
-void processMessage(aJsonObject *msg){
-  aJsonObject* method = aJson.getObjectItem(msg, "M");
-  aJsonObject* content = aJson.getObjectItem(msg, "C");     
-  aJsonObject* client_id = aJson.getObjectItem(msg, "ID");  
-  //char* st = aJson.print(msg);
-  if (!method) {
-    return;
-  }
-    //Serial.println(st); 
-    //free(st);
-    String M=method->valuestring;
-    String C=content->valuestring;
-    String F_C_ID=client_id->valuestring;
-    if(M=="say"){
-      if(C=="play"){
-        digitalWrite(LED, HIGH);
-        sayToClient(F_C_ID,"LED on!");    
-      }
-      if(C=="stop"){
-        digitalWrite(LED, LOW);
-        sayToClient(F_C_ID,"LED off!");    
-      }
-    }
-}
-void sayToClient(String client_id, String content){
-  Serial.print("{\"M\":\"say\",\"ID\":\"");
-  Serial.print(client_id);
-  Serial.print("\",\"C\":\"");
-  Serial.print(content);
-  Serial.print("\"}\r\n");
-  lastCheckInTime = millis();
-}
-void serialEvent() {
-  while (Serial.available()) {
-    char inChar = (char)Serial.read();
-    inputString += inChar;
-    if (inChar == '\n') {
-      stringComplete = true;
-    }
-  }
-}
+
