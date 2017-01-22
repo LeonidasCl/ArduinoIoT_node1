@@ -1,19 +1,19 @@
 #include <SoftwareSerial.h>
-SoftwareSerial mySerial(2, 3); //设置模拟串口针脚(RX, TX)
-//=============  此处必须修改===================
-String WiFiSSID = "LiCL";//填写路由器名称=======
-String WiFiPASSWORD = "030150230";//填写WiFi密码===
-//==============================================
-int flag = 0;
+
+//using software serial ESP8266rx-UNOpin3 ESP8266tx-UNOpin2
+SoftwareSerial mySerial(2, 3); 
+
+String WiFiSSID = "LiCL";
+String WiFiPASSWORD = "030150230";
+String nodenum="01";
+int i=0;
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   mySerial.begin(115200);
-}
-void loop() {
-  if(flag == 0){
-  Serial.println("setting start");
+  
+  Serial.println("initial start");
   //ESP8266通电启动等待
-  delay(10000);
+  delay(5000);
   //如果是透传模式，退出透传
   Serial.println("exit pass-through mode");
   mySerial.print("+++");
@@ -31,48 +31,75 @@ void loop() {
   mySerial.print("AT+CWMODE=1\r\n");  
   delay(1000);
   printmssage();
-  //连接到无线路由器 AT+CWJAP="FAST_SXM","lcx123456"\r\n
+  //connect wifi
   Serial.println("connect wireless router");
   mySerial.print("AT+CWJAP=\"");
   mySerial.print(WiFiSSID);
   mySerial.print("\",\"");
   mySerial.print(WiFiPASSWORD);
   mySerial.print("\"\r\n");
-  delay(10000);
+  delay(8000);
   printmssage();
-  //连接贝壳物联服务器
-  Serial.println("connect www.bigiot.net");
-  mySerial.print("AT+CIPSTART=\"TCP\",\"115.159.122.105\",9999\r\n");
-  delay(6000);
+  Serial.println("connecting remote server");
+  mySerial.print("AT+CIPSTART=\"TCP\",\"192.168.199.160\",9999\r\n");
+  delay(4000);
   printmssage();
-  //设置模块传输模式为透传模式
+  //start pass-through
   Serial.println("choose pass-through mode");
   mySerial.print("AT+CIPMODE=1\r\n");
   delay(3000);
   printmssage();
-  //进入透传模式
   Serial.println("enter pass-through mode");
-  mySerial.print("AT+CIPSEND?\r\n");
+  mySerial.print("AT+CIPSEND\r\n");
+  Serial.println("prepare send");
   delay(1000);
   printmssage();
-  flag=1;
+  mySerial.print(nodenum);
+  mySerial.print(" online\r\n");
+  Serial.println("sended");
+  delay(1000);
   Serial.println("setting over");
-  delay(2000);
-  //退出透传模式，重启
-  Serial.println("exit pass-through mode");
+  printmssage();
+  //exit pass-through mode
+  /*Serial.println("exit pass-through mode");
   mySerial.print("+++");
   delay(600);
   mySerial.print("\r\n");
-  delay(4000);
-  printmssage();
-  mySerial.print("AT+RST\r\n");
-  printmssage();
+  delay(1000);
+  printmssage();*/
+  
+  //close socket
+  //Serial.println("closing socket");
+  //mySerial.print("AT+CIPCLOSE\r\n");
+  //delay(2000);
+
+  //mySerial.print("AT+RST\r\n");
+
 }
+
+void loop(){
+  Serial.println(i);
+  delay(1000);
+  /*mySerial.print("AT+CIPMODE=1\r\n");
+  delay(1000);
   printmssage();
+  mySerial.print("AT+CIPSEND\r\n");
+  delay(1000);*/
+  printmssage();
+  mySerial.print(i);
+  mySerial.print("foo\r\n");
+  delay(1000);
+  printmssage();
+  /*mySerial.print("+++");
+  delay(600);
+  mySerial.print("\r\n");
+  printmssage();*/
+  i=i+1;
 }
 void printmssage(){
   if (mySerial.available()){
-      Serial.println(mySerial.readStringUntil('\n'));
+      mySerial.readStringUntil('\n');
+      //Serial.println(mySerial.readStringUntil('\n'));
   }
 }
 
